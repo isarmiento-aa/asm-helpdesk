@@ -148,6 +148,7 @@ async function runImport() {
   $("#import-go").disabled = true;
   $("#import-file").disabled = true;
   msg.className = "msg";
+  let step = "updating the ticket counter", done = 0;
   try {
     // 1) Move the counter past the imported numbers FIRST, so a ticket submitted while the
     //    import runs can't take one of them.
@@ -162,22 +163,31 @@ async function runImport() {
       return want;
     });
 
-    // 2) The tickets, in batches.
-    let done = 0;
-    for (let i = 0; i < todo.length; i += 100) {
+    // 2) The tickets, a few per batch: Firestore caps how much rule-checking one request may do,
+    //    and every imported ticket runs the full import rule.
+    const PER_BATCH = 5;
+    for (let i = 0; i < todo.length; i += PER_BATCH) {
+      const chunk = todo.slice(i, i + PER_BATCH);
+      step = `saving ${chunk[0].id} to ${chunk.at(-1).id}`;
       const batch = writeBatch(db);
-      for (const t of todo.slice(i, i + 100)) batch.set(doc(db, "tickets", t.id), t.data);
+      for (const t of chunk) batch.set(doc(db, "tickets", t.id), t.data);
       await batch.commit();
-      done += Math.min(100, todo.length - i);
+      chunk.forEach((t) => { t.exists = true; });
+      done += chunk.length;
       msg.textContent = `Imported ${done} of ${todo.length}...`;
     }
-    todo.forEach((t) => { t.exists = true; });
     renderPreview();
     msg.className = "msg ok";
     msg.textContent = `Done: ${done} ticket${done > 1 ? "s" : ""} imported. The next new ticket will be ${ticketLabel(next)}.`;
   } catch (err) {
+    console.error("Import failed while " + step, err);
+    renderPreview();
     msg.className = "msg error";
-    msg.textContent = "Import stopped: " + err.message + ". Tickets saved before this point stay; choose the file again to finish the rest.";
+    const rulesHint = /permission/i.test(err.message)
+      ? " This usually means the Firebase rules are not the latest: publish firestore.rules (Firestore > Rules) and try again."
+      : "";
+    msg.textContent = `Import stopped while ${step}: ${err.message}${rulesHint} ${done} ticket${done === 1 ? "" : "s"} were saved;`
+      + " choose the file again to finish the rest (saved ones are skipped).";
   } finally {
     $("#import-file").disabled = false;
   }
