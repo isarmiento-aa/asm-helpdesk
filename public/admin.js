@@ -34,7 +34,6 @@ const isEscalated = (t) => t.forBC === true && handlerOf(t) === "FA";
 for (const s of STATUSES) $("#f-status").insertAdjacentHTML("beforeend", `<option>${esc(s)}</option>`);
 for (const p of CHOICES.priority) $("#f-priority").insertAdjacentHTML("beforeend", `<option value="${esc(p)}">${esc(prioShort(p))}</option>`);
 for (const p of CHOICES.property) $("#f-property").insertAdjacentHTML("beforeend", `<option>${esc(p)}</option>`);
-for (const m of CHOICES.module) $("#f-module").insertAdjacentHTML("beforeend", `<option>${esc(m)}</option>`);
 
 setupAuth((user) => {
   if (stop) { stop(); stop = null; }
@@ -153,7 +152,8 @@ function renderDashboard() {
   const byPriority = CHOICES.priority
     .map((p) => ({ value: p, label: prioShort(p), n: active.filter((t) => t.priority === p).length }));
   // Modules have no order: biggest first, empty ones left out.
-  const byModule = CHOICES.module
+  const { current, older } = moduleNames();
+  const byModule = [...current, ...older]
     .map((m) => ({ value: m, label: m, n: active.filter((t) => t.module === m).length }))
     .filter((r) => r.n > 0)
     .sort((a, b) => b.n - a.n);
@@ -228,7 +228,22 @@ function filtered() {
       .join(" ").toLowerCase().includes(text)));
 }
 
+// The form's module list, plus any other module names found on tickets (e.g. tickets imported
+// from the Google Form, which used older names), so those can still be filtered and counted.
+function moduleNames() {
+  const extra = [...new Set(tickets.map((t) => t.module).filter((m) => m && !CHOICES.module.includes(m)))].sort();
+  return { current: CHOICES.module, older: extra };
+}
+
+function refreshModuleFilter() {
+  const sel = $("#f-module"), keep = sel.value, { current, older } = moduleNames();
+  const opts = (list) => list.map((m) => `<option${m === keep ? " selected" : ""}>${esc(m)}</option>`).join("");
+  sel.innerHTML = `<option value="">All modules</option>` + opts(current)
+    + (older.length ? `<optgroup label="Older module names">${opts(older)}</optgroup>` : "");
+}
+
 function render() {
+  refreshModuleFilter();
   renderDashboard();
   renderList();
 }

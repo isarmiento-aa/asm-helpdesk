@@ -62,17 +62,23 @@ export const CHOICES = {
   ],
   system: [
     "IPAS",
-    "Finance & Accounting",
-    "Billing & Collection",
+    "IFAE",
   ],
-  // "Login & User Access" requests are not handled by the helpdesk yet, so it is not offered.
+  // Tickets imported from the Google Form keep their old module names; the support queue
+  // still filters and counts those.
   module: [
-    "Accounts Payable",
-    "Accounts Receivable",
-    "Billing",
-    "Collections",
-    "General Ledger",
-    "Other",
+    "Billing Preparation",
+    "Encoding of Collection",
+    "Subsidiary Ledger Generation",
+    "Notice Preparation & Sending",
+    "Collection Efficiency Report Generation",
+    "Debit / Credit Memo",
+    "Owner Masterfile / Location / Unit",
+    "APV Encoding",
+    "CV Encoding",
+    "JV Encoding",
+    "Financial Report",
+    "Others",
   ],
   category: [
     "System Down / Unavailable",
