@@ -206,3 +206,54 @@ tr.row.is-open td { background: #f5f8ff; }
 }
 form.route { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); }
 form.route textarea { min-height: 70px; }
+
+/* ---- Support queue: dashboard left, tickets right ---- */
+[hidden] { display: none !important; }   /* "hidden" always wins over layout rules */
+
+body.wide header .bar, body.wide main { max-width: 1480px; }
+
+.admin-layout {
+  display: grid;
+  grid-template-columns: 330px minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.admin-main { min-width: 0; }
+.admin-main > .card:last-child { margin-bottom: 0; }
+
+/* The dashboard stays in view while the list scrolls. */
+.dash-panel {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100vh - 32px);
+  overflow-y: auto;
+  margin-bottom: 0;
+}
+.dash-panel h2 { margin: 0; }
+.dash-panel .dash-date { margin: 2px 0 14px; font-size: 12px; }
+.dash-panel .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+.dash-panel .tile { min-height: 84px; padding: 10px; }
+.dash-panel .tile-main { grid-column: 1 / -1; padding: 9px; }
+.dash-panel .tile-value { font-size: 26px; }
+.dash-panel .tile-main .tile-value { font-size: 32px; }
+.dash-panel .breakdowns { grid-template-columns: 1fr; gap: 16px; }
+.dash-panel .hbar { grid-template-columns: minmax(70px, 44%) 1fr 26px; }
+
+/* Narrow screens: stack the dashboard above the list. */
+@media (max-width: 1000px) {
+  .admin-layout { grid-template-columns: 1fr; }
+  .dash-panel { position: static; max-height: none; overflow: visible; margin-bottom: 20px; }
+  .dash-panel .tiles { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+  .dash-panel .tile-main { grid-column: auto; }
+  .dash-panel .breakdowns { grid-template-columns: 1fr 1.4fr; }
+}
+@media (max-width: 720px) {
+  .dash-panel .breakdowns { grid-template-columns: 1fr; }
+}
+
+/* Mid-size screens (dashboard beside the list): drop Module and Assigned from the table;
+   both still show when a ticket is opened. */
+@media (min-width: 1001px) and (max-width: 1300px) {
+  #queue table tr > :nth-child(4):not([colspan]),
+  #queue table tr > :nth-child(7):not([colspan]) { display: none; }
+}

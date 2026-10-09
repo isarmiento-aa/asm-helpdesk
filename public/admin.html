@@ -6,7 +6,7 @@
   <title>Helpdesk - Support Queue</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="wide">
   <header>
     <div class="bar">
       <h1>Accounting System <span>Helpdesk</span></h1>
@@ -30,16 +30,13 @@
       <p class="sub" id="denied-text">Sign in with a support team account to see the queue.</p>
     </section>
 
-    <div id="admin" hidden>
-      <!-- Dashboard: click any tile or bar to filter the ticket list below -->
-      <section class="card">
-        <div class="dash-head">
-          <h2 id="dash-title">Dashboard</h2>
-          <span class="dash-tools">
-            <span class="muted" id="dash-date"></span>
-            <button type="button" class="secondary" id="import-open">Import from Excel</button>
-          </span>
-        </div>
+    <!-- Two columns on wide screens: dashboard on the left, tickets on the right.
+         Narrow screens stack them. -->
+    <div id="admin" class="admin-layout" hidden>
+      <!-- Dashboard: click any tile or bar to filter the ticket list -->
+      <aside class="card dash-panel">
+        <h2 id="dash-title">Dashboard</h2>
+        <p class="muted dash-date" id="dash-date"></p>
         <div class="tiles" id="tiles"></div>
         <p class="oldest" id="oldest"></p>
         <div class="breakdowns">
@@ -52,7 +49,9 @@
             <div class="hbars" id="by-module"></div>
           </div>
         </div>
-      </section>
+      </aside>
+
+      <div class="admin-main">
 
       <!-- Import tickets from the cleaned Google Form export (.xlsx). Nothing is saved until "Import". -->
       <section id="import" class="card" hidden>
@@ -82,7 +81,10 @@
       <section id="queue" class="card">
         <div class="dash-head">
           <h2 id="queue-title">All Tickets</h2>
-          <span class="muted" id="showing"></span>
+          <span class="dash-tools">
+            <span class="muted" id="showing"></span>
+            <button type="button" class="secondary" id="import-open">Import from Excel</button>
+          </span>
         </div>
         <p class="sub">Click a ticket to see details and update it. Changes show on the submitter's
           <em>My Tickets</em> list right away.</p>
@@ -118,6 +120,7 @@
           </table>
         </div>
       </section>
+      </div>
     </div>
   </main>
 
