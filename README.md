@@ -51,6 +51,20 @@ Resolution Time (filled in automatically when the status becomes Resolved), Supp
 
    The deployed site is `https://accounting-system-helpdesk.web.app`.
 
+## Live on GitHub Pages
+
+Every push to `main` publishes `public/` to **https://isarmiento-aa.github.io/asm-helpdesk/**
+(`.github/workflows/pages.yml`). One-time setup:
+
+1. The repo must be **public** (or on a paid GitHub plan): Settings > General > Danger Zone >
+   Change visibility.
+2. Settings > **Pages** > Build and deployment > Source = **GitHub Actions**.
+3. Firebase console > Authentication > **Settings** > **Authorized domains** > Add domain >
+   `isarmiento-aa.github.io` (otherwise Google sign-in fails with `auth/unauthorized-domain`).
+4. Re-run the workflow (Actions tab > Deploy to GitHub Pages > Run workflow) or push any change.
+
+`firestore.rules` is **not** deployed by this; publish it in the Firebase console whenever it changes.
+
 ## Admins
 
 The admins are listed in **two** places that must match:
