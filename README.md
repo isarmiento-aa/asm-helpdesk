@@ -5,7 +5,7 @@ Ticket" Google Form. Plain HTML and JavaScript, no build step, **free Spark plan
 
 | Page | Who | What |
 |---|---|---|
-| `index.html` | anyone with an `@asia-affinity.com` Google account | **Submit a ticket** (same questions as the Google Form; gets `ASH-00001`, `ASH-00002`, ...) with up to 3 PDF/PNG/JPG attachments, and see **My Tickets** with status and action taken |
+| `index.html` | anyone with an `@asia-affinity.com` Google account | **Submit a ticket** (same questions as the Google Form; gets `ASM-0001`, `ASM-0002`, ...) with up to 3 PDF/PNG/JPG attachments, and see **My Tickets** with status and action taken |
 | `admin.html` | **only** `cbasa@` and `isarmiento@asia-affinity.com` | dashboard + every ticket: filter, search, open attachments, set status / assigned to / escalated to / action taken, and internal support remarks |
 
 Files:
@@ -74,9 +74,9 @@ Everyone else who signs in can only submit tickets and see their own.
 
 ## Ticket numbers
 
-`ASH-` followed by 5 digits, from the counter document `counters/tickets` (field `next` = the number the
-next ticket gets). To continue after the Google Form's last number (ASH-00016), set `next` to `17`
-in the console before the first real ticket.
+`ASM-` followed by 4 digits (`TICKET_PREFIX` / `TICKET_DIGITS` in `config.js`), from the counter document
+`counters/tickets` (field `next` = the number the next ticket gets). The imported Google Form tickets are
+ASM-0001 to ASM-0031, so after the import `next` must be `32`.
 
 ## How attachments work
 

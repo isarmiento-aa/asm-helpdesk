@@ -89,8 +89,9 @@ export const SUGGEST = {
 // Priorities that count as "urgent" on the dashboard (matched on the short label).
 export const URGENT_PRIORITIES = ["Critical", "High"];
 
-// Ticket numbers look like ASH-00001, as in the Google Form's "Control No." column.
-export const TICKET_PREFIX = "ASH-";
+// Control numbers look like ASM-0001: the prefix, then the number padded to TICKET_DIGITS.
+export const TICKET_PREFIX = "ASM-";
+export const TICKET_DIGITS = 4;
 
 // Attachments (PDF, PNG or JPG; stored inside Firestore). If you change these,
 // change the same limits in firestore.rules. The free plan holds 1 GB in total, so keep them small.

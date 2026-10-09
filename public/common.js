@@ -6,7 +6,7 @@ import {
 import {
   getFirestore, collection, getDocs,
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_DOMAIN, ADMINS, TICKET_PREFIX } from "./config.js";
+import { firebaseConfig, ALLOWED_DOMAIN, ADMINS, TICKET_PREFIX, TICKET_DIGITS } from "./config.js";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -19,7 +19,7 @@ export function esc(s) {
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-export const ticketLabel = (n) => TICKET_PREFIX + String(n ?? 0).padStart(5, "0");
+export const ticketLabel = (n) => TICKET_PREFIX + String(n ?? 0).padStart(TICKET_DIGITS, "0");
 
 export function fmtDate(ts) {
   if (!ts) return "";
