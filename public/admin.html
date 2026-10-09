@@ -34,7 +34,7 @@
       <!-- Dashboard: click any tile or bar to filter the ticket list below -->
       <section class="card">
         <div class="dash-head">
-          <h2>Dashboard</h2>
+          <h2 id="dash-title">Dashboard</h2>
           <span class="dash-tools">
             <span class="muted" id="dash-date"></span>
             <button type="button" class="secondary" id="import-open">Import from Excel</button>
@@ -81,7 +81,7 @@
 
       <section id="queue" class="card">
         <div class="dash-head">
-          <h2>All Tickets</h2>
+          <h2 id="queue-title">All Tickets</h2>
           <span class="muted" id="showing"></span>
         </div>
         <p class="sub">Click a ticket to see details and update it. Changes show on the submitter's
@@ -90,6 +90,7 @@
         <div class="toolbar">
           <select id="f-status" aria-label="Status">
             <option value="active">Unresolved (New, In Progress, On Hold)</option>
+            <option value="escalated" id="f-escalated">Escalated</option>
             <option value="">All statuses</option>
           </select>
           <select id="f-priority" aria-label="Priority">

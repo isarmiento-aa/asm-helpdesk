@@ -1,20 +1,23 @@
-// Support queue: dashboard + every ticket, live, with status / assignment / action-taken editing.
-// Only the ADMINS in config.js (enforced again by firestore.rules) can open it.
+// Support queue: dashboard + the team's tickets, live, with status / assignment / action-taken
+// editing, and B&C <-> F&A escalation. Only the FA_ADMINS / BC_ADMINS in config.js can open it;
+// firestore.rules enforces the same teams on the server.
+//   F&A sees tickets with forFA == true; B&C sees tickets with forBC == true.
+//   The team named in `handler` edits; the other team (if it can see the ticket) only views it.
 import {
-  collection, doc, query, orderBy, limit, onSnapshot, updateDoc, getDoc, setDoc, serverTimestamp,
+  collection, doc, query, where, onSnapshot, updateDoc, getDoc, setDoc, serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import {
   db, $, esc, ticketLabel, fmtDate, prioShort, prioClass, excerpt, statusClass,
-  attachmentLinks, fileBadge, setupAuth, isAgent,
+  attachmentLinks, fileBadge, setupAuth, adminTeam,
 } from "./common.js";
-import { CHOICES, STATUSES, DONE_STATUSES, URGENT_PRIORITIES } from "./config.js";
+import { CHOICES, STATUSES, DONE_STATUSES, URGENT_PRIORITIES, TEAM_NAMES } from "./config.js";
 import { setupImport } from "./import.js";
 
 const ACTIVE = STATUSES.filter((s) => !DONE_STATUSES.includes(s));
 const isUrgent = (t) => URGENT_PRIORITIES.includes(prioShort(t.priority));
-const MAX_TICKETS = 500;   // the dashboard and list cover the newest 500 tickets
 
 let me = null;
+let team = null;           // "FA" or "BC"
 let tickets = [];
 let openId = null;
 let savedId = null;
@@ -22,26 +25,41 @@ let stop = null;
 let importReady = false;
 const remarks = {};        // ticketId -> internal remarks text, loaded when a ticket is opened
 
+// Old tickets have no handler: they belong to F&A.
+const handlerOf = (t) => t.handler || "FA";
+const canEdit = (t) => handlerOf(t) === team;
+// A B&C ticket that B&C has passed to F&A.
+const isEscalated = (t) => t.forBC === true && handlerOf(t) === "FA";
+
 for (const s of STATUSES) $("#f-status").insertAdjacentHTML("beforeend", `<option>${esc(s)}</option>`);
 for (const p of CHOICES.priority) $("#f-priority").insertAdjacentHTML("beforeend", `<option value="${esc(p)}">${esc(prioShort(p))}</option>`);
 for (const p of CHOICES.property) $("#f-property").insertAdjacentHTML("beforeend", `<option>${esc(p)}</option>`);
 for (const m of CHOICES.module) $("#f-module").insertAdjacentHTML("beforeend", `<option>${esc(m)}</option>`);
 
-setupAuth(async (user) => {
+setupAuth((user) => {
   if (stop) { stop(); stop = null; }
   me = user;
-  const admin = user && await isAgent(user);
-  $("#admin").hidden = !admin;
-  $("#denied").hidden = !!admin;
+  team = adminTeam(user);
+  $("#admin").hidden = !team;
+  $("#denied").hidden = !!team;
   $("#denied-text").textContent = user
     ? `${user.email} is not a helpdesk admin. Use "Submit ticket" to send a ticket.`
     : "Sign in with a helpdesk admin account to see the queue.";
-  if (!admin) return;
-  if (!importReady) { setupImport(() => tickets); importReady = true; }
+  if (!team) return;
 
-  const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"), limit(MAX_TICKETS));
+  $("#dash-title").textContent = `${TEAM_NAMES[team]}: Dashboard`;
+  $("#queue-title").textContent = `${TEAM_NAMES[team]}: Tickets`;
+  $("#f-escalated").textContent = team === "FA" ? "Escalated from B&C" : "Escalated to F&A";
+  // Only F&A imports the old Google Form tickets (they belong to F&A).
+  $("#import-open").hidden = team !== "FA";
+  if (team === "FA" && !importReady) { setupImport(() => tickets); importReady = true; }
+
+  // Equality filter only (no orderBy), so no extra Firestore index is needed; sorted here instead.
+  const q = query(collection(db, "tickets"), where(team === "FA" ? "forFA" : "forBC", "==", true));
   stop = onSnapshot(q, (snap) => {
-    tickets = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    tickets = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => created(b) - created(a) || (b.ticketNo || 0) - (a.ticketNo || 0));
+    if (openId && !tickets.some((t) => t.id === openId)) openId = null;   // e.g. sent back to B&C
     render();
   }, (err) => {
     $("#rows").innerHTML = `<tr><td colspan="8" class="msg error">${esc(err.message)}</td></tr>`;
@@ -85,6 +103,7 @@ function tileDefs() {
   const doneWeek = done.filter((t) => resolved(t) && resolved(t) >= weekAgo);
   const avg = doneWeek.length
     ? (doneWeek.reduce((n, t) => n + Number(hoursToResolve(t)), 0) / doneWeek.length).toFixed(1) : null;
+  const escalated = active.filter(isEscalated).length;
 
   return [
     { label: "Submitted today", value: tickets.filter((t) => created(t) >= today).length,
@@ -97,6 +116,11 @@ function tileDefs() {
     { label: "On hold", value: count("On Hold"), note: "waiting on someone", filter: { status: "On Hold" } },
     { label: "Urgent unresolved", value: active.filter(isUrgent).length, alert: true,
       note: URGENT_PRIORITIES.join(" or ") + " priority", filter: { status: "active", priority: "urgent" } },
+    team === "FA"
+      ? { label: "Escalated from B&C", value: escalated, alert: true,
+          note: "unresolved, waiting on F&A", filter: { status: "escalated" } }
+      : { label: "Escalated to F&A", value: escalated,
+          note: "unresolved, F&A handling (view only)", filter: { status: "escalated" } },
     { label: "Resolved", value: done.length,
       note: `${doneWeek.length} in the last 7 days` + (avg ? ` · avg ${avg} hrs` : ""), filter: { status: DONE_STATUSES[0] } },
   ];
@@ -193,7 +217,9 @@ function filtered() {
   const since = dt === "today" ? startOfDay(0) : dt === "7d" ? startOfDay(7) : dt === "30d" ? startOfDay(30) : null;
   const text = $("#f-search").value.trim().toLowerCase();
   return tickets.filter((t) =>
-    (st === "active" ? ACTIVE.includes(t.status) : !st || t.status === st) &&
+    (st === "active" ? ACTIVE.includes(t.status)
+      : st === "escalated" ? isEscalated(t) && ACTIVE.includes(t.status)
+      : !st || t.status === st) &&
     (pr === "urgent" ? isUrgent(t) : !pr || t.priority === pr) &&
     (!pp || t.property === pp) &&
     (!mo || t.module === mo) &&
@@ -207,6 +233,17 @@ function render() {
   renderList();
 }
 
+// Small tag beside the issue saying where a B&C ticket stands.
+function routeBadge(t) {
+  if (isEscalated(t)) {
+    return team === "FA"
+      ? ' <span class="badge badge-route" title="Escalated by Billing & Collection">From B&amp;C</span>'
+      : ' <span class="badge badge-route" title="Finance & Accounting is handling it; view only">With F&amp;A</span>';
+  }
+  if (team === "BC" && t.returnedAt) return ' <span class="badge badge-route" title="Sent back by Finance & Accounting">Returned</span>';
+  return "";
+}
+
 function renderList() {
   // The table redraws on every change to any ticket; keep what an admin has typed but not saved.
   const open = $("#rows form.edit");
@@ -214,10 +251,11 @@ function renderList() {
     id: open.dataset.id, status: open.status.value, assignedTo: open.assignedTo.value,
     escalatedTo: open.escalatedTo.value, resolution: open.resolution.value, remarks: open.remarks.value,
   };
+  const routeOpen = $("#rows form.route");
+  const routeDraft = routeOpen && { id: routeOpen.dataset.id, note: routeOpen.note.value };
 
   const list = filtered();
-  $("#showing").textContent = `Showing ${list.length} of ${tickets.length} ticket${tickets.length === 1 ? "" : "s"}`
-    + (tickets.length >= MAX_TICKETS ? ` (newest ${MAX_TICKETS})` : "");
+  $("#showing").textContent = `Showing ${list.length} of ${tickets.length} ticket${tickets.length === 1 ? "" : "s"}`;
   if (!list.length) {
     $("#rows").innerHTML = `<tr><td colspan="8" class="muted">No tickets match these filters.</td></tr>`;
     return;
@@ -225,12 +263,13 @@ function renderList() {
   $("#rows").innerHTML = list.map((t) => `
     <tr class="row${t.id === openId ? " is-open" : ""}" data-id="${t.id}">
       <td class="nowrap"><strong>${ticketLabel(t.ticketNo)}</strong></td>
-      <td>${esc(excerpt(t.description))}${fileBadge(t)}</td>
+      <td>${esc(excerpt(t.description))}${fileBadge(t)}${routeBadge(t)}</td>
       <td>${esc(t.name)}<br><span class="muted">${esc(t.property)}</span></td>
       <td>${esc(t.module)}</td>
       <td class="${prioClass(t.priority)}" title="${esc(t.priority)}">${esc(prioShort(t.priority))}</td>
       <td>
-        <select class="quick-status ${statusClass(t.status)}" data-id="${t.id}" aria-label="Status of ${ticketLabel(t.ticketNo)}">
+        <select class="quick-status ${statusClass(t.status)}" data-id="${t.id}" aria-label="Status of ${ticketLabel(t.ticketNo)}"
+          ${canEdit(t) ? "" : `disabled title="View only: ${esc(TEAM_NAMES[handlerOf(t)])} is handling this ticket"`}>
           ${statusOptions(t.status)}
         </select>
       </td>
@@ -241,26 +280,70 @@ function renderList() {
   `).join("");
 
   const form = $("#rows form.edit");
-  if (!form) return;
-  if (savedId === form.dataset.id) {
-    savedId = null;
-    form.querySelector(".msg").className = "msg ok";
-    form.querySelector(".msg").textContent = "Saved.";
-  } else if (draft && draft.id === form.dataset.id) {
-    for (const k of ["status", "assignedTo", "escalatedTo", "resolution", "remarks"]) form[k].value = draft[k];
-    form.dataset.dirty = "1";
+  if (form) {
+    if (savedId === form.dataset.id) {
+      savedId = null;
+      form.querySelector(".msg").className = "msg ok";
+      form.querySelector(".msg").textContent = "Saved.";
+    } else if (draft && draft.id === form.dataset.id) {
+      for (const k of ["status", "assignedTo", "escalatedTo", "resolution", "remarks"]) form[k].value = draft[k];
+      form.dataset.dirty = "1";
+    }
   }
+  const route = $("#rows form.route");
+  if (route && routeDraft && routeDraft.id === route.dataset.id) route.note.value = routeDraft.note;
 }
 
 // Includes the ticket's current status even if it isn't in the list any more (e.g. an old test ticket).
 const statusOptions = (current) => [...new Set([...STATUSES, current].filter(Boolean))]
   .map((s) => `<option${s === current ? " selected" : ""}>${esc(s)}</option>`).join("");
 
+// Escalation history, shown to both teams.
+function routingInfo(t) {
+  let html = `<dt>Handled by</dt><dd>${esc(TEAM_NAMES[handlerOf(t)])}</dd>`;
+  if (t.escalatedAt) {
+    html += `<dt>Escalated to F&amp;A</dt><dd>${fmtDate(t.escalatedAt)} by ${esc(t.escalatedBy)}<br>${esc(t.escalationNote)}</dd>`;
+  }
+  if (t.returnedAt) {
+    html += `<dt>Sent back to B&amp;C</dt><dd>${fmtDate(t.returnedAt)} by ${esc(t.returnedBy)}<br>${esc(t.returnNote)}</dd>`;
+  }
+  return html;
+}
+
+// The escalate / send-back box under the edit form.
+function routeBox(t) {
+  if (team === "BC" && canEdit(t)) {
+    return `
+    <form class="route" data-id="${t.id}" data-action="escalate">
+      <label>Escalate to Finance &amp; Accounting</label>
+      <textarea name="note" maxlength="1000" required
+        placeholder="Why it needs F&A, and what B&C has already checked"></textarea>
+      <p class="hint muted">F&amp;A takes over the ticket; B&amp;C can still see it but not change it.</p>
+      <div class="actions">
+        <button type="submit" class="secondary">Escalate to F&amp;A</button>
+        <span class="msg"></span>
+      </div>
+    </form>`;
+  }
+  if (team === "FA" && canEdit(t) && t.forBC === true) {
+    return `
+    <form class="route" data-id="${t.id}" data-action="return">
+      <label>Send back to Billing &amp; Collection</label>
+      <textarea name="note" maxlength="1000" required placeholder="What B&C should do next"></textarea>
+      <p class="hint muted">The ticket leaves the F&amp;A queue and B&amp;C can work on it again.</p>
+      <div class="actions">
+        <button type="submit" class="secondary">Send back to B&amp;C</button>
+        <span class="msg"></span>
+      </div>
+    </form>`;
+  }
+  return "";
+}
+
 function detail(t) {
   const hrs = hoursToResolve(t);
   const rem = remarks[t.id];
-  return `
-  <tr class="detail"><td colspan="8"><div class="detail-box">
+  const info = `
     <dl>
       ${t.originalNo ? `<dt>Google Form no.</dt><dd>${esc(t.originalNo)} <span class="muted">(imported)</span></dd>` : ""}
       <dt>Email</dt><dd>${esc(t.email)}</dd>
@@ -276,9 +359,30 @@ function detail(t) {
       <dt>Additional notes</dt><dd>${esc(t.notes) || "-"}</dd>
       <dt>Attachments</dt><dd>${attachmentLinks(t)}</dd>
       <dt>Submitted</dt><dd>${fmtDate(t.createdAt)}</dd>
+      ${routingInfo(t)}
       <dt>Date resolved</dt><dd>${t.resolvedAt ? `${fmtDate(t.resolvedAt)} · ${hrs} hrs` : "-"}</dd>
       <dt>Last update</dt><dd>${fmtDate(t.updatedAt)}</dd>
+    </dl>`;
+
+  if (!canEdit(t)) {
+    // e.g. B&C looking at a ticket it escalated: everything visible, nothing editable.
+    return `
+  <tr class="detail"><td colspan="8"><div class="detail-box">
+    ${info}
+    <p class="viewonly">View only: ${esc(TEAM_NAMES[handlerOf(t)])} is handling this ticket.</p>
+    <dl>
+      <dt>Status</dt><dd>${esc(t.status)}</dd>
+      <dt>Assigned to</dt><dd>${esc(t.assignedTo) || "-"}</dd>
+      <dt>Escalated to</dt><dd>${esc(t.escalatedTo) || "-"}</dd>
+      <dt>Action taken</dt><dd>${esc(t.resolution) || "-"}</dd>
+      <dt>Support remarks</dt><dd>${rem === undefined ? "Loading..." : esc(rem) || "-"}</dd>
     </dl>
+  </div></td></tr>`;
+  }
+
+  return `
+  <tr class="detail"><td colspan="8"><div class="detail-box">
+    ${info}
     <form class="edit" data-id="${t.id}">
       <div class="grid">
         <div>
@@ -309,6 +413,7 @@ function detail(t) {
         <span class="msg"></span>
       </div>
     </form>
+    ${routeBox(t)}
   </div></td></tr>`;
 }
 
@@ -324,11 +429,12 @@ async function openTicket(id) {
     // Fill the box in place unless the admin has already started typing in it.
     const form = $(`#rows form.edit[data-id="${id}"]`);
     if (form && !form.dataset.dirty) { form.remarks.value = remarks[id]; form.remarks.placeholder = ""; }
+    else if (!form && openId === id) renderList();   // the view-only panel shows the remarks as text
   }
 }
 
 $("#rows").addEventListener("click", (e) => {
-  if (e.target.closest("select, a, form")) return;   // the status dropdown, attachment links and the edit form
+  if (e.target.closest("select, a, form")) return;   // the status dropdown, attachment links and the forms
   const row = e.target.closest("tr.row");
   if (!row) return;
   const id = openId === row.dataset.id ? null : row.dataset.id;
@@ -356,6 +462,7 @@ $("#rows").addEventListener("change", async (e) => {
   const sel = e.target.closest("select.quick-status");
   if (!sel) return;
   const t = tickets.find((x) => x.id === sel.dataset.id);
+  if (!canEdit(t)) return;
   sel.disabled = true;
   try {
     await updateDoc(doc(db, "tickets", t.id), { ...statusPatch(t, sel.value), updatedAt: serverTimestamp() });
@@ -365,9 +472,13 @@ $("#rows").addEventListener("change", async (e) => {
   }
 });
 
-$("#rows").addEventListener("submit", async (e) => {
+$("#rows").addEventListener("submit", (e) => {
   e.preventDefault();
-  const form = e.target;
+  if (e.target.matches("form.route")) routeTicket(e.target);
+  else if (e.target.matches("form.edit")) saveTicket(e.target);
+});
+
+async function saveTicket(form) {
   const id = form.dataset.id;
   const t = tickets.find((x) => x.id === id);
   const msg = form.querySelector(".msg");
@@ -404,4 +515,34 @@ $("#rows").addEventListener("submit", async (e) => {
     current.querySelector(".msg").textContent = "Could not save: " + err.message;
     current.querySelector("button").disabled = false;
   }
-});
+}
+
+// B&C -> F&A (escalate) or F&A -> B&C (send back). Both need a note.
+async function routeTicket(form) {
+  const id = form.dataset.id;
+  const note = form.note.value.trim();
+  const msg = form.querySelector(".msg");
+  msg.className = "msg error";
+  if (!note) { msg.textContent = "Please write a short note first."; form.note.focus(); return; }
+  const escalate = form.dataset.action === "escalate";
+  if (!confirm(escalate
+    ? `Escalate ${ticketLabel(tickets.find((x) => x.id === id).ticketNo)} to Finance & Accounting? B&C will only be able to view it.`
+    : `Send ${ticketLabel(tickets.find((x) => x.id === id).ticketNo)} back to Billing & Collection? It will leave the F&A queue.`)) return;
+  form.querySelector("button").disabled = true;
+  msg.className = "msg";
+  msg.textContent = escalate ? "Escalating..." : "Sending back...";
+  try {
+    await updateDoc(doc(db, "tickets", id), escalate
+      ? { handler: "FA", forFA: true, escalatedTo: TEAM_NAMES.FA, escalatedAt: serverTimestamp(),
+          escalatedBy: me.email, escalationNote: note, updatedAt: serverTimestamp() }
+      : { handler: "BC", forFA: false, escalatedTo: "", returnedAt: serverTimestamp(),
+          returnedBy: me.email, returnNote: note, updatedAt: serverTimestamp() });
+    // The live listener redraws: an escalated ticket turns view-only for B&C;
+    // a ticket sent back disappears from the F&A list.
+  } catch (err) {
+    const current = $(`#rows form.route[data-id="${id}"]`) || form;
+    current.querySelector(".msg").className = "msg error";
+    current.querySelector(".msg").textContent = (escalate ? "Could not escalate: " : "Could not send back: ") + err.message;
+    current.querySelector("button").disabled = false;
+  }
+}

@@ -6,7 +6,7 @@ import {
 import {
   getFirestore, collection, getDocs,
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
-import { firebaseConfig, ALLOWED_DOMAIN, ADMINS, TICKET_PREFIX, TICKET_DIGITS } from "./config.js";
+import { firebaseConfig, ALLOWED_DOMAIN, FA_ADMINS, BC_ADMINS, TICKET_PREFIX, TICKET_DIGITS } from "./config.js";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
@@ -93,9 +93,14 @@ export function isAllowed(user) {
   return !!user && user.emailVerified && user.email.toLowerCase().endsWith("@" + ALLOWED_DOMAIN);
 }
 
-// Only decides what the page shows; the security rules enforce the same list on the server.
-export async function isAgent(user) {
-  return !!user && ADMINS.includes(user.email.toLowerCase());
+// Which admin team this person is on: "FA", "BC" or null. Only decides what the page shows;
+// the security rules enforce the same lists on the server.
+export function adminTeam(user) {
+  const email = user?.email?.toLowerCase();
+  if (!email) return null;
+  if (FA_ADMINS.includes(email)) return "FA";
+  if (BC_ADMINS.includes(email)) return "BC";
+  return null;
 }
 
 // Wires the header's sign-in / sign-out controls and calls onChange(user | null).

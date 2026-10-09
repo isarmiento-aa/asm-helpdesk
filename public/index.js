@@ -5,9 +5,9 @@ import {
 } from "https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore.js";
 import {
   db, $, esc, ticketLabel, fmtDate, fmtSize, prioShort, prioClass, excerpt, statusClass,
-  attachmentLinks, fileBadge, setupAuth, isAgent,
+  attachmentLinks, fileBadge, setupAuth, adminTeam,
 } from "./common.js";
-import { CHOICES, SUGGEST, MAX_FILES, MAX_FILE_MB } from "./config.js";
+import { CHOICES, MAX_FILES, MAX_FILE_MB, BC_DEPARTMENT, TEAM_NAMES } from "./config.js";
 
 let currentUser = null;
 let stopMyTickets = null;
@@ -20,9 +20,6 @@ let pickedFiles = [];   // { file, type } picked for the ticket being written
 for (const [field, options] of Object.entries(CHOICES)) {
   $("#" + field).innerHTML = `<option value="">- Select -</option>` +
     options.map((o) => `<option>${esc(o)}</option>`).join("");
-}
-for (const [field, options] of Object.entries(SUGGEST)) {
-  $(`#${field}-list`).innerHTML = options.map((o) => `<option value="${esc(o)}">`).join("");
 }
 
 // The things a person types the same way every time are remembered on this computer only.
@@ -41,7 +38,7 @@ function fillDefaults() {
   $("#name").value = saved.name || currentUser?.displayName || "";
   $("#email").value = currentUser?.email || "";
   for (const id of ["department", "property", "viber"]) $("#" + id).value = saved[id] || "";
-  if (!CHOICES.property.includes($("#property").value)) $("#property").value = "";
+  for (const id of ["department", "property"]) if (!CHOICES[id].includes($("#" + id).value)) $("#" + id).value = "";
   const now = new Date();
   $("#occurredAt").value = localInputValue(now);
   $("#occurredAt").max = localInputValue(now);
@@ -55,7 +52,7 @@ setupAuth(async (user) => {
   if (!user) return;
 
   fillDefaults();
-  $("#agent-link").hidden = !(await isAgent(user));
+  $("#agent-link").hidden = !adminTeam(user);
   watchMyTickets(user.email);
 });
 
@@ -210,6 +207,10 @@ $("#ticket-form").addEventListener("submit", async (e) => {
     resolution: "",
     resolvedAt: null,
   };
+  // Billing & Collection tickets go to the B&C admins only; everything else to Finance & Accounting.
+  ticket.forBC = ticket.department === BC_DEPARTMENT;
+  ticket.forFA = !ticket.forBC;
+  ticket.handler = ticket.forBC ? "BC" : "FA";
 
   const counterRef = doc(db, "counters", "tickets");
   const ticketRef = doc(collection(db, "tickets"));
@@ -296,6 +297,7 @@ function renderMyTickets() {
       <dt>Description</dt><dd>${esc(t.description)}</dd>
       <dt>Additional notes</dt><dd>${esc(t.notes) || "-"}</dd>
       <dt>Attachments</dt><dd>${attachmentLinks(t)}</dd>
+      <dt>Handled by</dt><dd>${esc(TEAM_NAMES[t.handler || "FA"])}${t.escalatedAt && t.handler === "FA" ? " (escalated by Billing & Collection)" : ""}</dd>
       <dt>Assigned to</dt><dd>${esc(t.assignedTo) || "Not yet assigned"}</dd>
       <dt>Escalated to</dt><dd>${esc(t.escalatedTo) || "-"}</dd>
       <dt>Action taken</dt><dd>${esc(t.resolution) || "-"}</dd>

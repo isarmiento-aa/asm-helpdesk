@@ -62,6 +62,10 @@ function toTicket(r, line) {
     line, ticketNo, id: ticketNo ? ticketLabel(ticketNo) : null, problems,
     data: {
       source: "import",
+      // Imported tickets stay with Finance & Accounting, as they were handled before the teams existed.
+      forFA: true,
+      forBC: false,
+      handler: "FA",
       originalNo: str(r[COLS.was]),
       ticketNo,
       uid: "",

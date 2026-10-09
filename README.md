@@ -6,7 +6,7 @@ Ticket" Google Form. Plain HTML and JavaScript, no build step, **free Spark plan
 | Page | Who | What |
 |---|---|---|
 | `index.html` | anyone with an `@asia-affinity.com` Google account | **Submit a ticket** (same questions as the Google Form; gets `ASM-0001`, `ASM-0002`, ...) with up to 3 PDF/PNG/JPG attachments, and see **My Tickets** with status and action taken |
-| `admin.html` | **only** `cbasa@` and `isarmiento@asia-affinity.com` | dashboard + every ticket: filter, search, open attachments, set status / assigned to / escalated to / action taken, and internal support remarks |
+| `admin.html` | the two admin teams only (see **Admin teams**) | each team's dashboard + tickets: filter, search, open attachments, set status / assigned to / escalated to / action taken, internal support remarks, and B&C ↔ F&A escalation |
 
 Files:
 
@@ -79,12 +79,22 @@ browser, lists every row with any problems, and saves nothing until you click **
 - They have no account (`uid` is empty); submitters see them on **My Tickets** because it matches by email.
 - The spreadsheet never goes to GitHub (`migration/` and `*.xlsx` are git-ignored).
 
-## Admins
+## Admin teams
 
-The admins are listed in **two** places that must match:
-`ADMINS` in `public/config.js` (what the page shows) and `isAgent()` in `firestore.rules`
-(what the database allows). To add or remove one, change both and publish the rules again.
-Everyone else who signs in can only submit tickets and see their own.
+| Team | Who | Handles |
+|---|---|---|
+| **Finance & Accounting** (FA) | cbasa@, isarmiento@ | every ticket except Billing & Collection ones, plus B&C tickets that B&C escalates; all imported tickets |
+| **Billing & Collection** (BC) | dtoraldo@, cpapa@ | tickets whose **Department** is Billing & Collection, whoever submits them |
+
+- A Billing & Collection ticket is **only** visible to the B&C admins (and its submitter).
+- B&C can **Escalate to Finance & Accounting** (a reason is required). F&A then sees and handles it;
+  B&C keeps a **view-only** copy.
+- F&A can **Send back to Billing & Collection** (a note is required); it leaves the F&A queue and B&C can work it again.
+- Each ticket stores `forFA` / `forBC` (who can see it) and `handler` (`FA` or `BC`, who can edit it).
+  Support remarks follow the ticket: readable by the teams that can see it, editable by the handler.
+- The team lists are in **two** places that must match: `FA_ADMINS` / `BC_ADMINS` in `public/config.js`
+  and `isFA()` / `isBC()` in `firestore.rules`. Change both and publish the rules again.
+  Everyone else who signs in can only submit tickets and see their own.
 
 ## Ticket numbers
 

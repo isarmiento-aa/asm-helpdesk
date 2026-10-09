@@ -3,9 +3,15 @@ rules_version = '2';
 // Who can do what:
 //   - Anyone signed in with a verified @asia-affinity.com Google account can submit a ticket
 //     and read their OWN tickets.
-//   - The ADMINS below (and only they) can read every ticket and change
-//     status / assigned to / escalated to / action taken.
-//     Only they can read or write the internal support remarks (remarks/{ticketId}).
+//   - Two admin teams (the lists below; keep them in step with public/config.js):
+//       Finance & Accounting (FA): handle every ticket except Billing & Collection ones,
+//                                  plus B&C tickets once B&C escalates them.
+//       Billing & Collection (BC): handle tickets whose Department is Billing & Collection.
+//                                  They can escalate one to FA; after that it is view-only for BC
+//                                  until FA sends it back.
+//   - Each ticket says who may see it (forFA / forBC) and which team is handling it (handler).
+//   - Internal support remarks (remarks/{ticketId}) follow the ticket: the teams that can see the
+//     ticket can read them; only the handling team can change them. Never visible to the submitter.
 //   - Nobody can delete a ticket from the web page.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -16,17 +22,37 @@ service cloud.firestore {
         && request.auth.token.email.lower().matches('.*@asia-affinity[.]com$');
     }
 
-    // The ONLY admins. To add or remove one, edit this list AND ADMINS in public/config.js,
-    // then publish these rules again.
-    function isAgent() {
+    // The ONLY admins. To change them, edit these lists AND FA_ADMINS / BC_ADMINS in
+    // public/config.js, then publish these rules again.
+    function isFA() {
       return signedIn()
         && request.auth.token.email.lower() in ['cbasa@asia-affinity.com', 'isarmiento@asia-affinity.com'];
+    }
+    function isBC() {
+      return signedIn()
+        && request.auth.token.email.lower() in ['dtoraldo@asia-affinity.com', 'cpapa@asia-affinity.com'];
     }
 
     function str(v, min, max) {
       return v is string && v.size() >= min && v.size() <= max;
     }
 
+    // ---- Ticket visibility -----------------------------------------------------------------
+    // Tickets from before the teams existed have none of these fields: they belong to FA.
+    function seenByFA(t) { return t.get('forFA', true) == true; }
+    function seenByBC(t) { return t.get('forBC', false) == true; }
+    function handler(t) { return t.get('handler', 'FA'); }
+
+    function ticketData(id) { return get(/databases/$(database)/documents/tickets/$(id)).data; }
+    function canSeeTicket(id) {
+      return (isFA() && seenByFA(ticketData(id))) || (isBC() && seenByBC(ticketData(id)));
+    }
+    function canHandleTicket(id) {
+      return (isFA() && seenByFA(ticketData(id)) && handler(ticketData(id)) == 'FA')
+        || (isBC() && seenByBC(ticketData(id)) && handler(ticketData(id)) == 'BC');
+    }
+
+    // ---- Ticket numbers --------------------------------------------------------------------
     function counterAfter() {
       return getAfter(/databases/$(database)/documents/counters/tickets).data.next;
     }
@@ -46,22 +72,24 @@ service cloud.firestore {
         && request.resource.data.next == 2;
       allow update: if signedIn() && request.resource.data.keys().hasOnly(['next'])
         && request.resource.data.next == resource.data.next + 1;
-      // Admins may set it outright, e.g. to continue after imported tickets. Never backwards.
-      allow write: if isAgent() && request.resource.data.keys().hasOnly(['next'])
+      // FA admins may set it outright, e.g. to continue after imported tickets. Never backwards.
+      allow write: if isFA() && request.resource.data.keys().hasOnly(['next'])
         && request.resource.data.next is int
         && (resource == null || request.resource.data.next >= resource.data.next);
       allow delete: if false;
     }
 
-    // Attachments (PDF/PNG/JPG): files/{fileId} = details, files/{fileId}/chunks/{n} = the bytes (< 1 MB each).
+    // ---- Attachments -----------------------------------------------------------------------
+    // files/{fileId} = details, files/{fileId}/chunks/{n} = the bytes (< 1 MB each).
     // Written by the submitter BEFORE their ticket is saved; once the ticket exists they are locked.
-    // Readable by the submitter and the admins only.
+    // Readable by the submitter and by the admin teams that can see the ticket.
     function ticketSaved(ticketId) {
       return exists(/databases/$(database)/documents/tickets/$(ticketId));
     }
 
     match /files/{fileId} {
-      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAgent());
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || canSeeTicket(resource.data.ticketId));
 
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['uid', 'ticketId', 'name', 'type', 'fileSize', 'chunks', 'createdAt'])
@@ -85,7 +113,8 @@ service cloud.firestore {
         function fileBefore() { return get(/databases/$(database)/documents/files/$(fileId)).data; }
         function fileAfter() { return getAfter(/databases/$(database)/documents/files/$(fileId)).data; }
 
-        allow read: if signedIn() && (fileBefore().uid == request.auth.uid || isAgent());
+        allow read: if signedIn()
+          && (fileBefore().uid == request.auth.uid || canSeeTicket(fileBefore().ticketId));
 
         allow create: if signedIn()
           && fileAfter().uid == request.auth.uid
@@ -100,16 +129,26 @@ service cloud.firestore {
       }
     }
 
+    // ---- Tickets ---------------------------------------------------------------------------
     match /tickets/{ticketId} {
-      // The submitter is matched by account or by email; imported Google Form tickets have only the email.
-      allow read: if signedIn()
-        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || isAgent());
+      function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
 
+      // The submitter is matched by account or by email (imported Google Form tickets have only
+      // the email). Each team's queue page asks for forFA == true or forBC == true.
+      // "resource == null" lets FA check whether a ticket number is free before importing.
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid
+            || resource.data.email == request.auth.token.email
+            || (isFA() && (resource == null || resource.data.forFA == true))
+            || (isBC() && resource.data.forBC == true));
+
+      // A new ticket from the form. Billing & Collection tickets go to BC only; the rest to FA.
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
              'ticketNo', 'uid', 'email', 'name', 'department', 'property', 'viber', 'occurredAt',
              'system', 'module', 'category', 'priority', 'description', 'notes', 'attachments',
-             'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt'])
+             'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt',
+             'forBC', 'forFA', 'handler'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.email == request.auth.token.email
         && counterAdvanced()
@@ -121,8 +160,12 @@ service cloud.firestore {
         && request.resource.data.resolvedAt == null
         && request.resource.data.createdAt == request.time
         && request.resource.data.updatedAt == request.time
+        && request.resource.data.department in ['Billing & Collection', 'Finance & Accounting']
+        && request.resource.data.forBC == (request.resource.data.department == 'Billing & Collection')
+        && request.resource.data.forFA == !request.resource.data.forBC
+        && ((request.resource.data.forBC && request.resource.data.handler == 'BC')
+            || (!request.resource.data.forBC && request.resource.data.handler == 'FA'))
         && str(request.resource.data.name, 1, 200)
-        && str(request.resource.data.department, 1, 100)
         && str(request.resource.data.property, 1, 150)
         && str(request.resource.data.viber, 7, 20)
         && request.resource.data.viber.matches('^[0-9+() -]+$')
@@ -138,14 +181,19 @@ service cloud.firestore {
         && request.resource.data.attachments is list
         && request.resource.data.attachments.size() <= 3;
 
-      // Tickets imported from the old Google Form (admin "Import from Excel"). They keep their
-      // original number, dates, status and action taken; old attachments are Google Drive links.
-      allow create: if isAgent()
+      // Tickets imported from the old Google Form (FA "Import from Excel"). They keep their
+      // original number, dates, status and action taken, stay with FA, and their old
+      // attachments are Google Drive links.
+      allow create: if isFA()
         && request.resource.data.source == 'import'
         && request.resource.data.keys().hasOnly([
              'source', 'originalNo', 'ticketNo', 'uid', 'email', 'name', 'department', 'property', 'viber',
              'occurredAt', 'system', 'module', 'category', 'priority', 'description', 'notes', 'attachments',
-             'links', 'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt'])
+             'links', 'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt',
+             'forBC', 'forFA', 'handler'])
+        && request.resource.data.forFA == true
+        && request.resource.data.forBC == false
+        && request.resource.data.handler == 'FA'
         && request.resource.data.ticketNo is int && request.resource.data.ticketNo > 0
         && request.resource.data.uid == ''
         && request.resource.data.attachments == []
@@ -171,18 +219,39 @@ service cloud.firestore {
         && str(request.resource.data.escalatedTo, 0, 100)
         && str(request.resource.data.resolution, 0, 5000);
 
-      // resolvedAt is stamped (with the server's time) when a ticket becomes Resolved,
-      // and cleared when it is reopened.
-      allow update: if isAgent()
-        && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'updatedAt'])
+      // Working a ticket: only the team handling it. resolvedAt is stamped with the server's time
+      // when a ticket becomes Resolved, and cleared when it is reopened.
+      allow update: if canHandleTicket(ticketId)
+        && changed().hasOnly(['status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'updatedAt'])
         && request.resource.data.status in ['New', 'In Progress', 'On Hold', 'Resolved']
         && str(request.resource.data.assignedTo, 0, 100)
         && str(request.resource.data.get('escalatedTo', ''), 0, 100)
         && str(request.resource.data.resolution, 0, 5000)
-        && (!('resolvedAt' in request.resource.data.diff(resource.data).affectedKeys())
+        && (!('resolvedAt' in changed())
             || request.resource.data.resolvedAt == null
             || request.resource.data.resolvedAt == request.time)
+        && request.resource.data.updatedAt == request.time;
+
+      // BC escalates a ticket it is handling to FA, with a reason. BC keeps a view-only copy.
+      allow update: if isBC() && seenByBC(resource.data) && handler(resource.data) == 'BC'
+        && changed().hasOnly(['handler', 'forFA', 'escalatedTo', 'escalatedAt', 'escalatedBy', 'escalationNote', 'updatedAt'])
+        && request.resource.data.handler == 'FA'
+        && request.resource.data.forFA == true
+        && request.resource.data.escalatedTo == 'Finance & Accounting'
+        && request.resource.data.escalatedBy == request.auth.token.email
+        && request.resource.data.escalatedAt == request.time
+        && str(request.resource.data.escalationNote, 1, 1000)
+        && request.resource.data.updatedAt == request.time;
+
+      // FA sends an escalated BC ticket back to BC, with a note. It leaves FA's queue.
+      allow update: if isFA() && seenByBC(resource.data) && seenByFA(resource.data) && handler(resource.data) == 'FA'
+        && changed().hasOnly(['handler', 'forFA', 'escalatedTo', 'returnedAt', 'returnedBy', 'returnNote', 'updatedAt'])
+        && request.resource.data.handler == 'BC'
+        && request.resource.data.forFA == false
+        && request.resource.data.escalatedTo == ''
+        && request.resource.data.returnedBy == request.auth.token.email
+        && request.resource.data.returnedAt == request.time
+        && str(request.resource.data.returnNote, 1, 1000)
         && request.resource.data.updatedAt == request.time;
 
       allow delete: if false;
@@ -190,8 +259,8 @@ service cloud.firestore {
 
     // Internal support remarks, one document per ticket. Never visible to the submitter.
     match /remarks/{ticketId} {
-      allow read: if isAgent();
-      allow write: if isAgent()
+      allow read: if canSeeTicket(ticketId);
+      allow write: if canHandleTicket(ticketId)
         && request.resource.data.keys().hasOnly(['text', 'updatedBy', 'updatedAt'])
         && str(request.resource.data.text, 0, 5000)
         && request.resource.data.updatedBy == request.auth.token.email

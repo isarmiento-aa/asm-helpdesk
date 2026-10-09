@@ -14,13 +14,24 @@ export const firebaseConfig = {
 //    If you change it, change it in firestore.rules too.
 export const ALLOWED_DOMAIN = "asia-affinity.com";
 
-// The ONLY admins (support queue + dashboard). Everyone else can just submit and follow their own tickets.
-// To change this list, edit it here AND in firestore.rules (isAgent), then publish the rules again.
-export const ADMINS = ["cbasa@asia-affinity.com", "isarmiento@asia-affinity.com"];
+// The ONLY admins, in two teams. Everyone else can just submit and follow their own tickets.
+// To change a list, edit it here AND in firestore.rules (isFA / isBC), then publish the rules again.
+//   Finance & Accounting: every ticket except Billing & Collection ones, plus B&C tickets B&C escalates.
+//   Billing & Collection: tickets whose Department is BC_DEPARTMENT; they can escalate to F&A.
+export const FA_ADMINS = ["cbasa@asia-affinity.com", "isarmiento@asia-affinity.com"];
+export const BC_ADMINS = ["dtoraldo@asia-affinity.com", "cpapa@asia-affinity.com"];
+export const BC_DEPARTMENT = "Billing & Collection";
+export const TEAM_NAMES = { FA: "Finance & Accounting", BC: "Billing & Collection" };
 
 // 3) Choices on the ticket form, taken from the Google Form's past answers.
-//    Edit freely; they are stored as plain text. Lists marked "suggestions" can also be typed freely.
+//    Edit freely; they are stored as plain text.
 export const CHOICES = {
+  // Picks who handles the ticket: "Billing & Collection" goes to the B&C admins, the rest to F&A.
+  // If you change these, change the department list in firestore.rules too.
+  department: [
+    "Billing & Collection",
+    "Finance & Accounting",
+  ],
   property: [
     "Bayshore Residential Resort 2",
     "One Uptown Residences",
@@ -78,14 +89,6 @@ export const CHOICES = {
     "High - Major Function Blocked",
     "Medium - Workaround Available",
     "Low - Minor Issue",
-  ],
-};
-
-// Suggestions only: people can pick one or type another.
-export const SUGGEST = {
-  department: [
-    "Billing & Collection",
-    "Finance & Accounting",
   ],
 };
 

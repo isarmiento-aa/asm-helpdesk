@@ -197,3 +197,12 @@ tr.row.is-open td { background: #f5f8ff; }
 .detail-box dt { color: var(--muted); font-size: 13px; }
 .detail-box dd { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .detail-box .grid { margin-top: 8px; }
+
+/* ---- B&C / F&A routing ---- */
+.badge-route { color: #1849a9; border-color: #b2ccff; background: #eff4ff; }
+.viewonly {
+  margin: 4px 0 10px; padding: 8px 12px; border-radius: 6px;
+  background: #f2f4f7; color: var(--muted); font-size: 14px; font-weight: 600;
+}
+form.route { margin-top: 18px; padding-top: 14px; border-top: 1px dashed var(--line); }
+form.route textarea { min-height: 70px; }
