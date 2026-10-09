@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Helpdesk - Submit a Ticket</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>Accounting System <span>Helpdesk</span></h1>
+      <nav>
+        <a href="admin.html" id="agent-link" hidden>Support queue</a>
+      </nav>
+      <div class="user">
+        <span id="who"></span>
+        <button id="signin">Submit a ticket</button>
+        <button id="signout" hidden>Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <p id="auth-msg" class="msg error"></p>
+
+    <section id="signed-out" class="card" hidden>
+      <h2>Support Ticket</h2>
+      <p class="sub">Click <strong>Submit a ticket</strong> and sign in with your company Google account
+        to send a ticket and follow its status.</p>
+    </section>
+
+    <section id="signed-in" hidden>
+      <div id="success" class="success" hidden></div>
+
+      <form id="ticket-form" class="card" novalidate>
+        <h2>Accounting System Helpdesk — Support Ticket</h2>
+        <p class="sub">Fields marked <span class="req">*</span> are required.</p>
+
+        <div class="grid">
+          <div>
+            <label for="name">Full Name <span class="req">*</span></label>
+            <input id="name" maxlength="200" required autocomplete="name">
+          </div>
+          <div>
+            <label for="email">Email Address</label>
+            <input id="email" readonly>
+          </div>
+          <div>
+            <label for="department">Department <span class="req">*</span></label>
+            <input id="department" list="department-list" maxlength="100" required placeholder="Pick or type">
+            <datalist id="department-list"></datalist>
+          </div>
+          <div>
+            <label for="property">Property <span class="req">*</span></label>
+            <select id="property" required></select>
+          </div>
+          <div>
+            <label for="viber">Viber Number <span class="req">*</span></label>
+            <input id="viber" type="tel" maxlength="20" required placeholder="09XXXXXXXXX" autocomplete="tel">
+          </div>
+          <div>
+            <label for="occurredAt">Date/Time Issue Occurred <span class="req">*</span></label>
+            <input id="occurredAt" type="datetime-local" required>
+          </div>
+          <div>
+            <label for="system">Accounting System <span class="req">*</span></label>
+            <select id="system" required></select>
+          </div>
+          <div>
+            <label for="module">System Module Affected <span class="req">*</span></label>
+            <select id="module" required></select>
+          </div>
+          <div>
+            <label for="category">Issue Category <span class="req">*</span></label>
+            <select id="category" required></select>
+          </div>
+          <div>
+            <label for="priority">Priority Level <span class="req">*</span></label>
+            <select id="priority" required></select>
+          </div>
+          <div class="full">
+            <label for="description">Description of the Issue <span class="req">*</span></label>
+            <textarea id="description" maxlength="5000" required
+              placeholder="What happened? What did you expect? Include any error message, document or OR numbers."></textarea>
+          </div>
+          <div class="full">
+            <label for="files">Attachment / Screenshot</label>
+            <input id="files" type="file" accept="application/pdf,.pdf,image/png,.png,image/jpeg,.jpg,.jpeg" multiple>
+            <p class="hint muted" id="file-hint"></p>
+            <ul id="file-list" class="file-list"></ul>
+          </div>
+          <div class="full">
+            <label for="notes">Additional Notes</label>
+            <textarea id="notes" maxlength="5000" placeholder="Anything else the support team should know"></textarea>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="submit-btn">Submit ticket</button>
+          <button type="reset" class="secondary">Clear</button>
+          <span id="form-msg" class="msg"></span>
+        </div>
+      </form>
+
+      <section class="card">
+        <h2>My Tickets</h2>
+        <p class="sub">Tickets you have submitted. Click a ticket to see the support team's action taken.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Control No.</th><th>Issue</th><th>Module</th><th>Priority</th><th>Status</th><th>Submitted</th></tr>
+            </thead>
+            <tbody id="my-tickets"><tr><td colspan="6" class="muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="index.js"></script>
+</body>
+</html>

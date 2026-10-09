@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Helpdesk - Support Queue</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="bar">
+      <h1>Accounting System <span>Helpdesk</span></h1>
+      <nav>
+        <a href="index.html">Submit ticket</a>
+        <a href="admin.html" class="active">Support queue</a>
+      </nav>
+      <div class="user">
+        <span id="who"></span>
+        <button id="signin">Sign in with Google</button>
+        <button id="signout" hidden>Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <p id="auth-msg" class="msg error"></p>
+
+    <section id="denied" class="card" hidden>
+      <h2>Support Queue</h2>
+      <p class="sub" id="denied-text">Sign in with a support team account to see the queue.</p>
+    </section>
+
+    <div id="admin" hidden>
+      <!-- Dashboard: click any tile or bar to filter the ticket list below -->
+      <section class="card">
+        <div class="dash-head">
+          <h2>Dashboard</h2>
+          <span class="muted" id="dash-date"></span>
+        </div>
+        <div class="tiles" id="tiles"></div>
+        <p class="oldest" id="oldest"></p>
+        <div class="breakdowns">
+          <div>
+            <h3>Unresolved by priority</h3>
+            <div class="hbars" id="by-priority"></div>
+          </div>
+          <div>
+            <h3>Unresolved by module</h3>
+            <div class="hbars" id="by-module"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="queue" class="card">
+        <div class="dash-head">
+          <h2>All Tickets</h2>
+          <span class="muted" id="showing"></span>
+        </div>
+        <p class="sub">Click a ticket to see details and update it. Changes show on the submitter's
+          <em>My Tickets</em> list right away.</p>
+
+        <div class="toolbar">
+          <select id="f-status" aria-label="Status">
+            <option value="active">Unresolved (New, In Progress, On Hold)</option>
+            <option value="">All statuses</option>
+          </select>
+          <select id="f-priority" aria-label="Priority">
+            <option value="">All priorities</option>
+            <option value="urgent">Critical + High</option>
+          </select>
+          <select id="f-property" aria-label="Property"><option value="">All properties</option></select>
+          <select id="f-module" aria-label="Module"><option value="">All modules</option></select>
+          <select id="f-date" aria-label="Submitted">
+            <option value="">Any date</option>
+            <option value="today">Submitted today</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+          </select>
+          <input id="f-search" type="search" placeholder="Search control no., issue, name...">
+          <button type="button" class="secondary" id="f-clear">Clear filters</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Control No.</th><th>Issue</th><th>From</th><th>Module</th><th>Priority</th><th>Status</th><th>Assigned</th><th>Submitted</th></tr>
+            </thead>
+            <tbody id="rows"><tr><td colspan="8" class="muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

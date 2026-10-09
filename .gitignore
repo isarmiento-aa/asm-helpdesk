@@ -1,0 +1,14 @@
+# Firebase CLI cache and logs
+.firebase/
+*-debug.log
+firebase-debug.*.log
+
+# Dependencies (none today, but keep them out if added)
+node_modules/
+
+# Local preview helpers for Claude Code
+.claude/
+
+# OS / editor clutter
+.DS_Store
+Thumbs.db

@@ -1,0 +1,162 @@
+rules_version = '2';
+
+// Who can do what:
+//   - Anyone signed in with a verified @asia-affinity.com Google account can submit a ticket
+//     and read their OWN tickets.
+//   - The ADMINS below (and only they) can read every ticket and change
+//     status / assigned to / escalated to / action taken.
+//     Only they can read or write the internal support remarks (remarks/{ticketId}).
+//   - Nobody can delete a ticket from the web page.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@asia-affinity[.]com$');
+    }
+
+    // The ONLY admins. To add or remove one, edit this list AND ADMINS in public/config.js,
+    // then publish these rules again.
+    function isAgent() {
+      return signedIn()
+        && request.auth.token.email.lower() in ['cbasa@asia-affinity.com', 'isarmiento@asia-affinity.com'];
+    }
+
+    function str(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+
+    function counterAfter() {
+      return getAfter(/databases/$(database)/documents/counters/tickets).data.next;
+    }
+
+    // True only when this same write moves the counter up by exactly one,
+    // so every ticket number is used once.
+    function counterAdvanced() {
+      return (!exists(/databases/$(database)/documents/counters/tickets) && counterAfter() == 2)
+        || (exists(/databases/$(database)/documents/counters/tickets)
+            && get(/databases/$(database)/documents/counters/tickets).data.next + 1 == counterAfter());
+    }
+
+    // Ticket number counter: may only ever go up by one, and only alongside a new ticket.
+    match /counters/tickets {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == 2;
+      allow update: if signedIn() && request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next == resource.data.next + 1;
+      allow delete: if false;
+    }
+
+    // Attachments (PDF/PNG/JPG): files/{fileId} = details, files/{fileId}/chunks/{n} = the bytes (< 1 MB each).
+    // Written by the submitter BEFORE their ticket is saved; once the ticket exists they are locked.
+    // Readable by the submitter and the admins only.
+    function ticketSaved(ticketId) {
+      return exists(/databases/$(database)/documents/tickets/$(ticketId));
+    }
+
+    match /files/{fileId} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAgent());
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'ticketId', 'name', 'type', 'fileSize', 'chunks', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && str(request.resource.data.ticketId, 1, 40)
+        && !ticketSaved(request.resource.data.ticketId)
+        && str(request.resource.data.name, 1, 200)
+        && request.resource.data.type in ['application/pdf', 'image/png', 'image/jpeg']
+        && request.resource.data.fileSize is int
+        && request.resource.data.fileSize > 0
+        && request.resource.data.fileSize <= 5 * 1024 * 1024
+        && request.resource.data.chunks is int
+        && request.resource.data.chunks >= 1
+        && request.resource.data.chunks <= 6
+        && request.resource.data.createdAt == request.time;
+
+      allow delete: if signedIn() && resource.data.uid == request.auth.uid && !ticketSaved(resource.data.ticketId);
+      allow update: if false;
+
+      match /chunks/{n} {
+        function fileBefore() { return get(/databases/$(database)/documents/files/$(fileId)).data; }
+        function fileAfter() { return getAfter(/databases/$(database)/documents/files/$(fileId)).data; }
+
+        allow read: if signedIn() && (fileBefore().uid == request.auth.uid || isAgent());
+
+        allow create: if signedIn()
+          && fileAfter().uid == request.auth.uid
+          && !ticketSaved(fileAfter().ticketId)
+          && int(n) >= 0 && int(n) < fileAfter().chunks
+          && request.resource.data.keys().hasOnly(['data'])
+          && request.resource.data.data is bytes
+          && request.resource.data.data.size() <= 900 * 1024;
+
+        allow delete: if signedIn() && fileBefore().uid == request.auth.uid && !ticketSaved(fileBefore().ticketId);
+        allow update: if false;
+      }
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAgent());
+
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+             'ticketNo', 'uid', 'email', 'name', 'department', 'property', 'viber', 'occurredAt',
+             'system', 'module', 'category', 'priority', 'description', 'notes', 'attachments',
+             'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && counterAdvanced()
+        && request.resource.data.ticketNo == counterAfter() - 1
+        && request.resource.data.status == 'New'
+        && request.resource.data.assignedTo == ''
+        && request.resource.data.escalatedTo == ''
+        && request.resource.data.resolution == ''
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && str(request.resource.data.name, 1, 200)
+        && str(request.resource.data.department, 1, 100)
+        && str(request.resource.data.property, 1, 150)
+        && str(request.resource.data.viber, 7, 20)
+        && request.resource.data.viber.matches('^[0-9+() -]+$')
+        && request.resource.data.occurredAt is timestamp
+        && request.resource.data.occurredAt < request.time + duration.value(1, 'h')
+        && str(request.resource.data.system, 1, 100)
+        && str(request.resource.data.module, 1, 100)
+        && str(request.resource.data.category, 1, 100)
+        && str(request.resource.data.priority, 1, 100)
+        && str(request.resource.data.description, 1, 5000)
+        && str(request.resource.data.notes, 0, 5000)
+        // The files themselves are checked by the files rules above; this only caps the list.
+        && request.resource.data.attachments is list
+        && request.resource.data.attachments.size() <= 3;
+
+      // resolvedAt is stamped (with the server's time) when a ticket becomes Resolved,
+      // and cleared when it is reopened.
+      allow update: if isAgent()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'updatedAt'])
+        && request.resource.data.status in ['New', 'In Progress', 'On Hold', 'Resolved']
+        && str(request.resource.data.assignedTo, 0, 100)
+        && str(request.resource.data.get('escalatedTo', ''), 0, 100)
+        && str(request.resource.data.resolution, 0, 5000)
+        && (!('resolvedAt' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.resolvedAt == null
+            || request.resource.data.resolvedAt == request.time)
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+
+    // Internal support remarks, one document per ticket. Never visible to the submitter.
+    match /remarks/{ticketId} {
+      allow read: if isAgent();
+      allow write: if isAgent()
+        && request.resource.data.keys().hasOnly(['text', 'updatedBy', 'updatedAt'])
+        && str(request.resource.data.text, 0, 5000)
+        && request.resource.data.updatedBy == request.auth.token.email
+        && request.resource.data.updatedAt == request.time;
+    }
+  }
+}
