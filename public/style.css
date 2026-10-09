@@ -157,6 +157,15 @@ a.pdf::before { content: "PDF "; font-size: 10px; font-weight: 700; color: #fff;
 .tile-alert { border-left: 4px solid var(--danger); }
 .tile-alert .tile-label::before { content: "! "; color: var(--danger); font-weight: 700; }
 
+.dash-tools { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dash-tools button { padding: 5px 12px; font-size: 13px; }
+#import .sub { margin-top: 0; }
+#import input[type=file] { max-width: 480px; }
+#import .table-wrap { max-height: 420px; overflow: auto; margin-top: 10px; border: 1px solid var(--line); border-radius: 6px; }
+#import thead th { position: sticky; top: 0; background: #fff; }
+tr.imp-bad td { background: #fef3f2; }
+tr.imp-skip td { color: var(--muted); }
+
 .oldest { margin: 14px 0 0; font-size: 14px; color: var(--muted); }
 .oldest a { color: #1849a9; font-weight: 600; }
 

@@ -54,15 +54,18 @@ export const CHOICES = {
     "Finance & Accounting",
     "Billing & Collection",
   ],
+  // "Login & User Access" requests are not handled by the helpdesk yet, so it is not offered.
   module: [
+    "Accounts Payable",
+    "Accounts Receivable",
     "Billing",
     "Collections",
     "General Ledger",
-    "Login & User Access",
     "Other",
   ],
   category: [
     "System Down / Unavailable",
+    "System Error / Bug",
     "Data Discrepancy",
     "Access / Permission Issue",
     "Report / Output Issue",

@@ -42,18 +42,20 @@ export function excerpt(text, max = 90) {
   return line.length > max ? line.slice(0, max - 1) + "…" : line;
 }
 
-// Links for a ticket's attachments. Clicking one goes through loadFile (below),
-// so the Firestore rules decide whether this user may open it.
-export function attachmentLinks(list) {
-  if (!list || !list.length) return "-";
-  return list.map((a) =>
+// A ticket's attachments: files uploaded here (opened through loadFile below, so the Firestore
+// rules decide who may open them), plus Google Drive links carried over from the old Google Form.
+export function attachmentLinks(t) {
+  const files = (t.attachments || []).map((a) =>
     `<a href="#" class="att" data-file="${esc(a.fileId)}" data-type="${esc(a.type || "application/pdf")}">${esc(a.name)}</a>`
-    + ` <span class="muted">(${fmtSize(a.size)})</span>`,
-  ).join("<br>");
+    + ` <span class="muted">(${fmtSize(a.size)})</span>`);
+  const drive = (t.links || []).filter((u) => String(u).toLowerCase().startsWith("https://")).map((u, i) =>
+    `<a href="${esc(u)}" target="_blank" rel="noopener">Open in Drive${t.links.length > 1 ? " " + (i + 1) : ""}</a>`);
+  const all = [...files, ...drive];
+  return all.length ? all.join("<br>") : "-";
 }
 
 export function fileBadge(t) {
-  const n = t.attachments?.length || 0;
+  const n = (t.attachments?.length || 0) + (t.links?.length || 0);
   return n ? ` <span class="badge" title="${n} attachment${n > 1 ? "s" : ""}">${n} file${n > 1 ? "s" : ""}</span>` : "";
 }
 

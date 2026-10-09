@@ -56,7 +56,7 @@ setupAuth(async (user) => {
 
   fillDefaults();
   $("#agent-link").hidden = !(await isAgent(user));
-  watchMyTickets(user.uid);
+  watchMyTickets(user.email);
 });
 
 // ---- Attachments (PDF, PNG, JPG) ------------------------------------------
@@ -253,9 +253,10 @@ $("#ticket-form").addEventListener("submit", async (e) => {
 
 // ---- My tickets ---------------------------------------------------------
 
-function watchMyTickets(uid) {
-  // Filtered by uid only (no orderBy) so no composite index is needed; sorted here instead.
-  const q = query(collection(db, "tickets"), where("uid", "==", uid));
+function watchMyTickets(email) {
+  // Matched by email so tickets imported from the old Google Form (which have no account) show too.
+  // Filtered only (no orderBy) so no composite index is needed; sorted here instead.
+  const q = query(collection(db, "tickets"), where("email", "==", email));
   stopMyTickets = onSnapshot(q, (snap) => {
     myTickets = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
       .sort((a, b) => (b.ticketNo || 0) - (a.ticketNo || 0));
@@ -294,7 +295,7 @@ function renderMyTickets() {
       <dt>Issue occurred</dt><dd>${fmtDate(t.occurredAt) || "-"}</dd>
       <dt>Description</dt><dd>${esc(t.description)}</dd>
       <dt>Additional notes</dt><dd>${esc(t.notes) || "-"}</dd>
-      <dt>Attachments</dt><dd>${attachmentLinks(t.attachments)}</dd>
+      <dt>Attachments</dt><dd>${attachmentLinks(t)}</dd>
       <dt>Assigned to</dt><dd>${esc(t.assignedTo) || "Not yet assigned"}</dd>
       <dt>Escalated to</dt><dd>${esc(t.escalatedTo) || "-"}</dd>
       <dt>Action taken</dt><dd>${esc(t.resolution) || "-"}</dd>

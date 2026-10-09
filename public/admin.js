@@ -8,6 +8,7 @@ import {
   attachmentLinks, fileBadge, setupAuth, isAgent,
 } from "./common.js";
 import { CHOICES, STATUSES, DONE_STATUSES, URGENT_PRIORITIES } from "./config.js";
+import { setupImport } from "./import.js";
 
 const ACTIVE = STATUSES.filter((s) => !DONE_STATUSES.includes(s));
 const isUrgent = (t) => URGENT_PRIORITIES.includes(prioShort(t.priority));
@@ -18,6 +19,7 @@ let tickets = [];
 let openId = null;
 let savedId = null;
 let stop = null;
+let importReady = false;
 const remarks = {};        // ticketId -> internal remarks text, loaded when a ticket is opened
 
 for (const s of STATUSES) $("#f-status").insertAdjacentHTML("beforeend", `<option>${esc(s)}</option>`);
@@ -35,6 +37,7 @@ setupAuth(async (user) => {
     ? `${user.email} is not a helpdesk admin. Use "Submit ticket" to send a ticket.`
     : "Sign in with a helpdesk admin account to see the queue.";
   if (!admin) return;
+  if (!importReady) { setupImport(() => tickets); importReady = true; }
 
   const q = query(collection(db, "tickets"), orderBy("createdAt", "desc"), limit(MAX_TICKETS));
   stop = onSnapshot(q, (snap) => {
@@ -195,7 +198,7 @@ function filtered() {
     (!pp || t.property === pp) &&
     (!mo || t.module === mo) &&
     (!since || created(t) >= since) &&
-    (!text || [ticketLabel(t.ticketNo), t.description, t.name, t.email, t.property, t.department, t.system, t.module]
+    (!text || [ticketLabel(t.ticketNo), t.originalNo, t.description, t.name, t.email, t.property, t.department, t.system, t.module]
       .join(" ").toLowerCase().includes(text)));
 }
 
@@ -259,6 +262,7 @@ function detail(t) {
   return `
   <tr class="detail"><td colspan="8"><div class="detail-box">
     <dl>
+      ${t.originalNo ? `<dt>Google Form no.</dt><dd>${esc(t.originalNo)} <span class="muted">(imported)</span></dd>` : ""}
       <dt>Email</dt><dd>${esc(t.email)}</dd>
       <dt>Viber number</dt><dd>${esc(t.viber) || "-"}</dd>
       <dt>Department</dt><dd>${esc(t.department) || "-"}</dd>
@@ -270,7 +274,7 @@ function detail(t) {
       <dt>Issue occurred</dt><dd>${fmtDate(t.occurredAt) || "-"}</dd>
       <dt>Description</dt><dd>${esc(t.description)}</dd>
       <dt>Additional notes</dt><dd>${esc(t.notes) || "-"}</dd>
-      <dt>Attachments</dt><dd>${attachmentLinks(t.attachments)}</dd>
+      <dt>Attachments</dt><dd>${attachmentLinks(t)}</dd>
       <dt>Submitted</dt><dd>${fmtDate(t.createdAt)}</dd>
       <dt>Date resolved</dt><dd>${t.resolvedAt ? `${fmtDate(t.resolvedAt)} · ${hrs} hrs` : "-"}</dd>
       <dt>Last update</dt><dd>${fmtDate(t.updatedAt)}</dd>

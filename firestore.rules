@@ -46,6 +46,10 @@ service cloud.firestore {
         && request.resource.data.next == 2;
       allow update: if signedIn() && request.resource.data.keys().hasOnly(['next'])
         && request.resource.data.next == resource.data.next + 1;
+      // Admins may set it outright, e.g. to continue after imported tickets. Never backwards.
+      allow write: if isAgent() && request.resource.data.keys().hasOnly(['next'])
+        && request.resource.data.next is int
+        && (resource == null || request.resource.data.next >= resource.data.next);
       allow delete: if false;
     }
 
@@ -97,7 +101,9 @@ service cloud.firestore {
     }
 
     match /tickets/{ticketId} {
-      allow read: if signedIn() && (resource.data.uid == request.auth.uid || isAgent());
+      // The submitter is matched by account or by email; imported Google Form tickets have only the email.
+      allow read: if signedIn()
+        && (resource.data.uid == request.auth.uid || resource.data.email == request.auth.token.email || isAgent());
 
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly([
@@ -131,6 +137,39 @@ service cloud.firestore {
         // The files themselves are checked by the files rules above; this only caps the list.
         && request.resource.data.attachments is list
         && request.resource.data.attachments.size() <= 3;
+
+      // Tickets imported from the old Google Form (admin "Import from Excel"). They keep their
+      // original number, dates, status and action taken; old attachments are Google Drive links.
+      allow create: if isAgent()
+        && request.resource.data.source == 'import'
+        && request.resource.data.keys().hasOnly([
+             'source', 'originalNo', 'ticketNo', 'uid', 'email', 'name', 'department', 'property', 'viber',
+             'occurredAt', 'system', 'module', 'category', 'priority', 'description', 'notes', 'attachments',
+             'links', 'status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'createdAt', 'updatedAt'])
+        && request.resource.data.ticketNo is int && request.resource.data.ticketNo > 0
+        && request.resource.data.uid == ''
+        && request.resource.data.attachments == []
+        && request.resource.data.links is list && request.resource.data.links.size() <= 10
+        && request.resource.data.status in ['New', 'In Progress', 'On Hold', 'Resolved']
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && (request.resource.data.occurredAt == null || request.resource.data.occurredAt is timestamp)
+        && (request.resource.data.resolvedAt == null || request.resource.data.resolvedAt is timestamp)
+        && str(request.resource.data.originalNo, 0, 40)
+        && str(request.resource.data.email, 3, 200)
+        && str(request.resource.data.name, 0, 200)
+        && str(request.resource.data.department, 0, 100)
+        && str(request.resource.data.property, 0, 150)
+        && str(request.resource.data.viber, 0, 30)
+        && str(request.resource.data.system, 0, 100)
+        && str(request.resource.data.module, 0, 100)
+        && str(request.resource.data.category, 0, 100)
+        && str(request.resource.data.priority, 0, 100)
+        && str(request.resource.data.description, 1, 5000)
+        && str(request.resource.data.notes, 0, 5000)
+        && str(request.resource.data.assignedTo, 0, 100)
+        && str(request.resource.data.escalatedTo, 0, 100)
+        && str(request.resource.data.resolution, 0, 5000);
 
       // resolvedAt is stamped (with the server's time) when a ticket becomes Resolved,
       // and cleared when it is reopened.

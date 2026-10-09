@@ -65,6 +65,20 @@ Every push to `main` publishes `public/` to **https://isarmiento-aa.github.io/as
 
 `firestore.rules` is **not** deployed by this; publish it in the Firebase console whenever it changes.
 
+## Importing the old Google Form tickets
+
+Support queue (`admin.html`) > **Import from Excel** > choose the clean import file
+(`migration/ASM Helpdesk - Clean Import (ASM-0001).xlsx`, sheet **Tickets**). The page reads it in the
+browser, lists every row with any problems, and saves nothing until you click **Import**.
+
+- Tickets keep their control number (ASM-0001 ...) as their document id, so re-running skips tickets
+  already imported. A number already used by a different ticket is flagged and blocks the import.
+- The counter is moved past the highest imported number **before** the tickets are written.
+- Imported tickets keep their dates (Philippine time), status, action taken and old number
+  (`originalNo`); their attachments are Google Drive links (`links`), shown as "Open in Drive".
+- They have no account (`uid` is empty); submitters see them on **My Tickets** because it matches by email.
+- The spreadsheet never goes to GitHub (`migration/` and `*.xlsx` are git-ignored).
+
 ## Admins
 
 The admins are listed in **two** places that must match:
