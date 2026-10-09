@@ -12,3 +12,8 @@ node_modules/
 # OS / editor clutter
 .DS_Store
 Thumbs.db
+
+# Migration data (names, phone numbers) - never commit; the repo is public
+migration/
+*.xlsx
+*.csv
