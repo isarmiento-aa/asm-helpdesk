@@ -249,7 +249,7 @@ function renderList() {
   const open = $("#rows form.edit");
   const draft = open && open.dataset.dirty && {
     id: open.dataset.id, status: open.status.value, assignedTo: open.assignedTo.value,
-    escalatedTo: open.escalatedTo.value, resolution: open.resolution.value, remarks: open.remarks.value,
+    resolution: open.resolution.value, remarks: open.remarks.value,
   };
   const routeOpen = $("#rows form.route");
   const routeDraft = routeOpen && routeOpen.note && { id: routeOpen.dataset.id, note: routeOpen.note.value };
@@ -286,7 +286,7 @@ function renderList() {
       form.querySelector(".msg").className = "msg ok";
       form.querySelector(".msg").textContent = "Saved.";
     } else if (draft && draft.id === form.dataset.id) {
-      for (const k of ["status", "assignedTo", "escalatedTo", "resolution", "remarks"]) form[k].value = draft[k];
+      for (const k of ["status", "assignedTo", "resolution", "remarks"]) form[k].value = draft[k];
       form.dataset.dirty = "1";
     }
   }
@@ -370,7 +370,6 @@ function detail(t) {
     <dl>
       <dt>Status</dt><dd>${esc(t.status)}</dd>
       <dt>Assigned to</dt><dd>${esc(t.assignedTo) || "-"}</dd>
-      <dt>Escalated to</dt><dd>${esc(t.escalatedTo) || "-"}</dd>
       <dt>Action taken</dt><dd>${esc(t.resolution) || "-"}</dd>
       <dt>Support remarks</dt><dd>${rem === undefined ? "Loading..." : esc(rem) || "-"}</dd>
     </dl>
@@ -390,11 +389,6 @@ function detail(t) {
           <label>Assigned to</label>
           <input name="assignedTo" maxlength="100" value="${esc(t.assignedTo)}">
         </div>
-        <div>
-          <label>Escalated to</label>
-          <input name="escalatedTo" maxlength="100" value="${esc(t.escalatedTo)}" placeholder="e.g. DEV">
-        </div>
-        <div></div>
         <div class="full">
           <label>Resolution / action taken <span class="muted">(the submitter can see this)</span></label>
           <textarea name="resolution" maxlength="5000">${esc(t.resolution)}</textarea>
@@ -487,7 +481,6 @@ async function saveTicket(form) {
     await updateDoc(doc(db, "tickets", id), {
       ...statusPatch(t, form.status.value),
       assignedTo: form.assignedTo.value.trim(),
-      escalatedTo: form.escalatedTo.value.trim(),
       resolution: form.resolution.value.trim(),
       updatedAt: serverTimestamp(),
     });

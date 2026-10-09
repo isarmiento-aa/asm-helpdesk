@@ -299,7 +299,6 @@ function renderMyTickets() {
       <dt>Attachments</dt><dd>${attachmentLinks(t)}</dd>
       <dt>Handled by</dt><dd>${esc(TEAM_NAMES[t.handler || "FA"])}${t.escalatedAt && t.handler === "FA" ? " (escalated by Billing & Collection)" : ""}</dd>
       <dt>Assigned to</dt><dd>${esc(t.assignedTo) || "Not yet assigned"}</dd>
-      <dt>Escalated to</dt><dd>${esc(t.escalatedTo) || "-"}</dd>
       <dt>Action taken</dt><dd>${esc(t.resolution) || "-"}</dd>
       <dt>Date resolved</dt><dd>${t.resolvedAt ? `${fmtDate(t.resolvedAt)} (${hoursBetween(t.createdAt, t.resolvedAt)})` : "-"}</dd>
       <dt>Last update</dt><dd>${fmtDate(t.updatedAt)}</dd>
