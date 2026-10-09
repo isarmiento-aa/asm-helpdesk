@@ -252,7 +252,7 @@ function renderList() {
     escalatedTo: open.escalatedTo.value, resolution: open.resolution.value, remarks: open.remarks.value,
   };
   const routeOpen = $("#rows form.route");
-  const routeDraft = routeOpen && { id: routeOpen.dataset.id, note: routeOpen.note.value };
+  const routeDraft = routeOpen && routeOpen.note && { id: routeOpen.dataset.id, note: routeOpen.note.value };
 
   const list = filtered();
   $("#showing").textContent = `Showing ${list.length} of ${tickets.length} ticket${tickets.length === 1 ? "" : "s"}`;
@@ -291,7 +291,7 @@ function renderList() {
     }
   }
   const route = $("#rows form.route");
-  if (route && routeDraft && routeDraft.id === route.dataset.id) route.note.value = routeDraft.note;
+  if (route && route.note && routeDraft && routeDraft.id === route.dataset.id) route.note.value = routeDraft.note;
 }
 
 // Includes the ticket's current status even if it isn't in the list any more (e.g. an old test ticket).
@@ -302,7 +302,7 @@ const statusOptions = (current) => [...new Set([...STATUSES, current].filter(Boo
 function routingInfo(t) {
   let html = `<dt>Handled by</dt><dd>${esc(TEAM_NAMES[handlerOf(t)])}</dd>`;
   if (t.escalatedAt) {
-    html += `<dt>Escalated to F&amp;A</dt><dd>${fmtDate(t.escalatedAt)} by ${esc(t.escalatedBy)}<br>${esc(t.escalationNote)}</dd>`;
+    html += `<dt>Escalated to F&amp;A</dt><dd>${fmtDate(t.escalatedAt)} by ${esc(t.escalatedBy)}${t.escalationNote ? "<br>" + esc(t.escalationNote) : ""}</dd>`;
   }
   if (t.returnedAt) {
     html += `<dt>Sent back to B&amp;C</dt><dd>${fmtDate(t.returnedAt)} by ${esc(t.returnedBy)}<br>${esc(t.returnNote)}</dd>`;
@@ -315,12 +315,9 @@ function routeBox(t) {
   if (team === "BC" && canEdit(t)) {
     return `
     <form class="route" data-id="${t.id}" data-action="escalate">
-      <label>Escalate to Finance &amp; Accounting</label>
-      <textarea name="note" maxlength="1000" required
-        placeholder="Why it needs F&A, and what B&C has already checked"></textarea>
-      <p class="hint muted">F&amp;A takes over the ticket; B&amp;C can still see it but not change it.</p>
       <div class="actions">
-        <button type="submit" class="secondary">Escalate to F&amp;A</button>
+        <button type="submit" class="secondary">Escalate to Finance &amp; Accounting</button>
+        <span class="hint muted">F&amp;A takes over the ticket; B&amp;C can still see it but not change it.</span>
         <span class="msg"></span>
       </div>
     </form>`;
@@ -517,14 +514,14 @@ async function saveTicket(form) {
   }
 }
 
-// B&C -> F&A (escalate) or F&A -> B&C (send back). Both need a note.
+// B&C -> F&A (escalate: one click) or F&A -> B&C (send back: needs a note).
 async function routeTicket(form) {
   const id = form.dataset.id;
-  const note = form.note.value.trim();
+  const escalate = form.dataset.action === "escalate";
+  const note = form.note ? form.note.value.trim() : "";
   const msg = form.querySelector(".msg");
   msg.className = "msg error";
-  if (!note) { msg.textContent = "Please write a short note first."; form.note.focus(); return; }
-  const escalate = form.dataset.action === "escalate";
+  if (!escalate && !note) { msg.textContent = "Please write a short note first."; form.note.focus(); return; }
   if (!confirm(escalate
     ? `Escalate ${ticketLabel(tickets.find((x) => x.id === id).ticketNo)} to Finance & Accounting? B&C will only be able to view it.`
     : `Send ${ticketLabel(tickets.find((x) => x.id === id).ticketNo)} back to Billing & Collection? It will leave the F&A queue.`)) return;
@@ -534,7 +531,7 @@ async function routeTicket(form) {
   try {
     await updateDoc(doc(db, "tickets", id), escalate
       ? { handler: "FA", forFA: true, escalatedTo: TEAM_NAMES.FA, escalatedAt: serverTimestamp(),
-          escalatedBy: me.email, escalationNote: note, updatedAt: serverTimestamp() }
+          escalatedBy: me.email, updatedAt: serverTimestamp() }
       : { handler: "BC", forFA: false, escalatedTo: "", returnedAt: serverTimestamp(),
           returnedBy: me.email, returnNote: note, updatedAt: serverTimestamp() });
     // The live listener redraws: an escalated ticket turns view-only for B&C;

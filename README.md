@@ -87,7 +87,7 @@ browser, lists every row with any problems, and saves nothing until you click **
 | **Billing & Collection** (BC) | dtoraldo@, cpapa@ | tickets whose **Department** is Billing & Collection, whoever submits them |
 
 - A Billing & Collection ticket is **only** visible to the B&C admins (and its submitter).
-- B&C can **Escalate to Finance & Accounting** (a reason is required). F&A then sees and handles it;
+- B&C can **Escalate to Finance & Accounting** with one button. F&A then sees and handles it;
   B&C keeps a **view-only** copy.
 - F&A can **Send back to Billing & Collection** (a note is required); it leaves the F&A queue and B&C can work it again.
 - Each ticket stores `forFA` / `forBC` (who can see it) and `handler` (`FA` or `BC`, who can edit it).

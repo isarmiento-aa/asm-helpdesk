@@ -7,7 +7,7 @@ rules_version = '2';
 //       Finance & Accounting (FA): handle every ticket except Billing & Collection ones,
 //                                  plus B&C tickets once B&C escalates them.
 //       Billing & Collection (BC): handle tickets whose Department is Billing & Collection.
-//                                  They can escalate one to FA; after that it is view-only for BC
+//                                  They can escalate one to FA (one click); after that it is view-only for BC
 //                                  until FA sends it back.
 //   - Each ticket says who may see it (forFA / forBC) and which team is handling it (handler).
 //   - Internal support remarks (remarks/{ticketId}) follow the ticket: the teams that can see the
@@ -232,15 +232,14 @@ service cloud.firestore {
             || request.resource.data.resolvedAt == request.time)
         && request.resource.data.updatedAt == request.time;
 
-      // BC escalates a ticket it is handling to FA, with a reason. BC keeps a view-only copy.
+      // BC escalates a ticket it is handling to FA (one click). BC keeps a view-only copy.
       allow update: if isBC() && seenByBC(resource.data) && handler(resource.data) == 'BC'
-        && changed().hasOnly(['handler', 'forFA', 'escalatedTo', 'escalatedAt', 'escalatedBy', 'escalationNote', 'updatedAt'])
+        && changed().hasOnly(['handler', 'forFA', 'escalatedTo', 'escalatedAt', 'escalatedBy', 'updatedAt'])
         && request.resource.data.handler == 'FA'
         && request.resource.data.forFA == true
         && request.resource.data.escalatedTo == 'Finance & Accounting'
         && request.resource.data.escalatedBy == request.auth.token.email
         && request.resource.data.escalatedAt == request.time
-        && str(request.resource.data.escalationNote, 1, 1000)
         && request.resource.data.updatedAt == request.time;
 
       // FA sends an escalated BC ticket back to BC, with a note. It leaves FA's queue.
