@@ -96,6 +96,26 @@ browser, lists every row with any problems, and saves nothing until you click **
   and `isFA()` / `isBC()` in `firestore.rules`. Change both and publish the rules again.
   Everyone else who signs in can only submit tickets and see their own.
 
+## Ticket-received emails
+
+`email-notifier/` is a Google Apps Script that lives in the **Helpdesk Email Routing** Google Sheet
+(in the helpdesk Drive folder). Every minute it reads new tickets from Firestore and emails each
+submitter, with CCs from the sheet's **Routing** tab (by Department, then Property; a `*` row covers
+the rest of that department), and logs every email in **Sent log**. Free: it sends through the
+script owner's Gmail (Google Workspace allows about 1,500 recipients a day). Old and imported tickets
+are never emailed. The email addresses live only in the sheet, not in this repo.
+
+Setup (once, as the account that should send the emails):
+1. Open the sheet > **Extensions > Apps Script**.
+2. ⚙ **Project Settings** > tick **Show "appsscript.json" manifest file in editor**.
+3. Back in the editor: replace `Code.gs` with `email-notifier/Code.gs` and `appsscript.json` with
+   `email-notifier/appsscript.json`. **Save**.
+4. Choose **setup** in the function list > **Run** > allow the permissions.
+   **Sent log** then shows "Ready. Will email tickets after ASM-…".
+5. Optional: run **sendTestEmail** (emails only you) or **previewRouting** (lists every route, sends nothing).
+
+To change who is CC'd, edit the Routing tab; no code changes needed.
+
 ## Ticket numbers
 
 `ASM-` followed by 4 digits (`TICKET_PREFIX` / `TICKET_DIGITS` in `config.js`), from the counter document
