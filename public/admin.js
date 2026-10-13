@@ -118,7 +118,7 @@ function tileDefs() {
     team === "FA"
       ? { label: "Escalated from B&C", value: escalated, alert: true,
           note: "unresolved, waiting on F&A", filter: { status: "escalated" } }
-      : { label: "Escalated to F&A", value: escalated,
+      : { label: "Escalated", value: escalated,
           note: "unresolved, F&A handling (view only)", filter: { status: "escalated" } },
     { label: "Resolved", value: done.length,
       note: `${doneWeek.length} in the last 7 days` + (avg ? ` · avg ${avg} hrs` : ""), filter: { status: DONE_STATUSES[0] } },
