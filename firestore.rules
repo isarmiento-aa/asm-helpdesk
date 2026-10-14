@@ -26,7 +26,7 @@ service cloud.firestore {
     // public/config.js, then publish these rules again.
     function isFA() {
       return signedIn()
-        && request.auth.token.email.lower() in ['cbasa@asia-affinity.com', 'isarmiento@asia-affinity.com'];
+        && request.auth.token.email.lower() in ['cbasa@asia-affinity.com', 'isarmiento@asia-affinity.com', 'acastillo@asia-affinity.com'];
     }
     function isBC() {
       return signedIn()

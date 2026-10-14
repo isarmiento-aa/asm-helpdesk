@@ -18,7 +18,7 @@ export const ALLOWED_DOMAIN = "asia-affinity.com";
 // To change a list, edit it here AND in firestore.rules (isFA / isBC), then publish the rules again.
 //   Finance & Accounting: every ticket except Billing & Collection ones, plus B&C tickets B&C escalates.
 //   Billing & Collection: tickets whose Department is BC_DEPARTMENT; they can escalate to F&A.
-export const FA_ADMINS = ["cbasa@asia-affinity.com", "isarmiento@asia-affinity.com"];
+export const FA_ADMINS = ["cbasa@asia-affinity.com", "isarmiento@asia-affinity.com", "acastillo@asia-affinity.com"];
 export const BC_ADMINS = ["dtoraldo@asia-affinity.com", "cpapa@asia-affinity.com"];
 export const BC_DEPARTMENT = "Billing & Collection";
 export const TEAM_NAMES = { FA: "Finance & Accounting", BC: "Billing & Collection" };

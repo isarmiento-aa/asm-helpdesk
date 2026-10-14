@@ -83,7 +83,7 @@ browser, lists every row with any problems, and saves nothing until you click **
 
 | Team | Who | Handles |
 |---|---|---|
-| **Finance & Accounting** (FA) | cbasa@, isarmiento@ | every ticket except Billing & Collection ones, plus B&C tickets that B&C escalates; all imported tickets |
+| **Finance & Accounting** (FA) | cbasa@, isarmiento@, acastillo@ | every ticket except Billing & Collection ones, plus B&C tickets that B&C escalates; all imported tickets |
 | **Billing & Collection** (BC) | dtoraldo@, cpapa@ | tickets whose **Department** is Billing & Collection, whoever submits them |
 
 - A Billing & Collection ticket is **only** visible to the B&C admins (and its submitter).
