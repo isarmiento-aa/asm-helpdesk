@@ -121,5 +121,5 @@ export const MAX_FILE_MB = 5;
 
 // Ticket statuses, as in the Google Form's "Status" column. "Resolved" counts as done;
 // the others count as unresolved. If you change these, change the list in firestore.rules too.
-export const STATUSES = ["New", "In Progress", "On Hold", "Resolved"];
+export const STATUSES = ["New", "For Review - HQ", "In Progress - Dev", "Resolved"];
 export const DONE_STATUSES = ["Resolved"];

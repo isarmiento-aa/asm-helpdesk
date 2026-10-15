@@ -198,7 +198,7 @@ service cloud.firestore {
         && request.resource.data.uid == ''
         && request.resource.data.attachments == []
         && request.resource.data.links is list && request.resource.data.links.size() <= 10
-        && request.resource.data.status in ['New', 'In Progress', 'On Hold', 'Resolved']
+        && request.resource.data.status in ['New', 'For Review - HQ', 'In Progress - Dev', 'Resolved']
         && request.resource.data.createdAt is timestamp
         && request.resource.data.updatedAt is timestamp
         && (request.resource.data.occurredAt == null || request.resource.data.occurredAt is timestamp)
@@ -223,7 +223,7 @@ service cloud.firestore {
       // when a ticket becomes Resolved, and cleared when it is reopened.
       allow update: if canHandleTicket(ticketId)
         && changed().hasOnly(['status', 'assignedTo', 'escalatedTo', 'resolution', 'resolvedAt', 'updatedAt'])
-        && request.resource.data.status in ['New', 'In Progress', 'On Hold', 'Resolved']
+        && request.resource.data.status in ['New', 'For Review - HQ', 'In Progress - Dev', 'Resolved']
         && str(request.resource.data.assignedTo, 0, 100)
         && str(request.resource.data.get('escalatedTo', ''), 0, 100)
         && str(request.resource.data.resolution, 0, 5000)

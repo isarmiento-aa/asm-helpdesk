@@ -111,8 +111,8 @@ function tileDefs() {
     { label: "Unresolved", value: active.length, main: true,
       note: ACTIVE.join(", "), filter: { status: "active" } },
     { label: "New", value: count("New"), note: "not started yet", filter: { status: "New" } },
-    { label: "In progress", value: count("In Progress"), note: "being worked on", filter: { status: "In Progress" } },
-    { label: "On hold", value: count("On Hold"), note: "waiting on someone", filter: { status: "On Hold" } },
+    { label: "For Review - HQ", value: count("For Review - HQ"), note: "awaiting HQ review", filter: { status: "For Review - HQ" } },
+    { label: "In Progress - Dev", value: count("In Progress - Dev"), note: "being worked on", filter: { status: "In Progress - Dev" } },
     { label: "Urgent unresolved", value: active.filter(isUrgent).length, alert: true,
       note: URGENT_PRIORITIES.join(" or ") + " priority", filter: { status: "active", priority: "urgent" } },
     team === "FA"

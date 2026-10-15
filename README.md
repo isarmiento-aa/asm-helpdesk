@@ -27,7 +27,7 @@ Full Name, Email (automatic), Department, Property, Viber Number, Date/Time Issu
 Accounting System, System Module Affected, Issue Category, Priority Level, Description of the Issue,
 Attachment / Screenshot, Additional Notes.
 
-Admin fields (as in the responses sheet): Control No., Status (New / In Progress / On Hold / Resolved),
+Admin fields (as in the responses sheet): Control No., Status (New / For Review - HQ / In Progress - Dev / Resolved),
 Assigned To, Escalated To, Resolution / Action Taken (the submitter sees this), Date Resolved and
 Resolution Time (filled in automatically when the status becomes Resolved), Support Remarks
 (admins only, stored separately in `remarks/{ticketId}` so the submitter can never read them).
